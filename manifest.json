@@ -1,10 +1,10 @@
 {
   "id": "enhanced-zoom",
   "name": "Enhanced Zoom",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "minAppVersion": "1.1.16",
-  "description": "Zoom into heading and lists.",
-  "author": "Viacheslav Slinko",
-  "authorUrl": "https://github.com/vslinko",
+  "description": "WorkFlowy-style zoom into headings and list items.",
+  "author": "David Phillips (fork of vslinko/obsidian-zoom via HorizonP)",
+  "authorUrl": "https://github.com/would-that-it-were-so-simple",
   "isDesktopOnly": false
 }
