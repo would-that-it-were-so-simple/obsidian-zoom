@@ -4,9 +4,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
 import { Feature } from "./Feature";
+import { getDocumentTitle } from "./utils/getDocumentTitle";
 import { isFoldingEnabled } from "./utils/isFoldingEnabled";
 
 import { CalculateRangeForZooming } from "../logic/CalculateRangeForZooming";
+import { CollectBreadcrumbs } from "../logic/CollectBreadcrumbs";
 import { KeepOnlyZoomedContentVisible } from "../logic/KeepOnlyZoomedContentVisible";
 import {
   RemoveSharedIndentation,
@@ -26,8 +28,10 @@ export class ZoomFeature implements Feature {
     this.logger
   );
   private removeSharedIndentation = new RemoveSharedIndentation();
-
   private calculateRangeForZooming = new CalculateRangeForZooming();
+  private collectBreadcrumbs = new CollectBreadcrumbs({
+    getDocumentTitle: getDocumentTitle,
+  });
 
   constructor(private plugin: Plugin, private logger: LoggerService) {}
 
@@ -117,7 +121,7 @@ export class ZoomFeature implements Feature {
   }
 
   public zoomOut(view: EditorView) {
-    const l = this.logger.bind("ZoomFeature:zoomIn");
+    const l = this.logger.bind("ZoomFeature:zoomOut");
     l("zooming out");
 
     this.keepOnlyZoomedContentVisible.showAllContent(view);
@@ -125,6 +129,43 @@ export class ZoomFeature implements Feature {
     for (const cb of this.zoomOutCallbacks) {
       cb(view);
     }
+  }
+
+  public zoomOutOneLevel(view: EditorView) {
+    const l = this.logger.bind("ZoomFeature:zoomOutOneLevel");
+    l("zooming out one level");
+
+    const currentRange =
+      this.keepOnlyZoomedContentVisible.calculateVisibleContentRange(
+        view.state
+      );
+
+    if (!currentRange) {
+      this.zoomOut(view);
+      return;
+    }
+
+    const breadcrumbs = this.collectBreadcrumbs.collectBreadcrumbs(
+      view.state,
+      currentRange.from
+    );
+
+    // breadcrumbs: [document root (pos: null), ...ancestors, current]
+    // Second-to-last is the parent; if parent is root, zoom out completely
+    if (breadcrumbs.length <= 2) {
+      this.zoomOut(view);
+      return;
+    }
+
+    const parent = breadcrumbs[breadcrumbs.length - 2];
+
+    if (parent.pos === null) {
+      this.zoomOut(view);
+      return;
+    }
+
+    l("zooming to parent at pos", parent.pos);
+    this.zoomIn(view, parent.pos);
   }
 
   async load() {
@@ -159,6 +200,20 @@ export class ZoomFeature implements Feature {
       hotkeys: [
         {
           modifiers: ["Mod", "Shift"],
+          key: ".",
+        },
+      ],
+    });
+
+    this.plugin.addCommand({
+      id: "zoom-out-one-level",
+      name: "Zoom out one level",
+      icon: "zoom-out",
+      editorCallback: (editor) =>
+        this.zoomOutOneLevel(getEditorViewFromEditor(editor)),
+      hotkeys: [
+        {
+          modifiers: ["Mod", "Alt"],
           key: ".",
         },
       ],
